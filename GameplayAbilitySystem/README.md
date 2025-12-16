@@ -115,13 +115,13 @@ Full excerpt: [`Snippets/ExecCalc_Damage.cpp`](Snippets/ExecCalc_Damage.cpp)
 
 ### Gameplay Video
 
-▶ YouTube: https://www.youtube.com/watch?v=YOUR_VIDEO_ID
+▶ YouTube: 
 
 ## Repository Structure
 
-- `README.md` – overview of the GAS damage pipeline
-- `Screenshots/` – visuals referenced in this README
-- `Snippets/` – selected C++ code snippets (ExecCalc, AttributeSet, MMC)
+- [`README.md`](UnrealEngine-GameDev-Portfolio/GameplayAbilitySystem/README.md) – overview of the GAS damage pipeline
+- [`Screenshots/`](Screenshots/) – visuals referenced in this README
+- [`Snippets/`](Snippets/) – selected C++ code snippets (ExecCalc, AttributeSet, MMC)
 
 This repository presents selected excerpts of a larger multiplayer GAS project,
 focusing on core combat and damage logic.
