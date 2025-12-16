@@ -72,7 +72,7 @@ World item interaction using Blueprint Interfaces:
 - Item data passed to inventory system
 - Actor destroyed only after successful add
 
-![Item Interact](Screenshots/BP_Pickup_Item_interact.JPG)
+![Item Interact](Screenshots/BP_Pickup_tem_interact.JPG)
 
 ---
 
