@@ -198,7 +198,8 @@ void UExecCalc_Damage::Execute_Implementation(
         Damage
     ));
 }
-
+```
+```cpp
 // Damage coefficients are data-driven (CurveTable assigned in DA_CharacterClassInfo)
 const UCharacterClassInfo* ClassInfo = UAuraAbilitySystemLibrary::GetCharacterClassInfo(SourceAvatarActor);
 check(ClassInfo && ClassInfo->DamageCalculationCoefficients);
