@@ -61,7 +61,7 @@ Implemented using UMG drag operations:
 - Swap / move behavior
 - Visual feedback during drag
 
-![On Drag Detected](Screenshots/BP On Drag Detected.JPG)
+![On Drag Detected](Screenshots/BP_On_Drag_Detected.JPG)
 
 ---
 
@@ -72,7 +72,7 @@ World item interaction using Blueprint Interfaces:
 - Item data passed to inventory system
 - Actor destroyed only after successful add
 
-![Item Interact](Screenshots/BP Pickup Item (interact).JPG)
+![Item Interact](Screenshots/BP_Pickup_Item_interact.JPG)
 
 ---
 
@@ -95,7 +95,7 @@ Inventory state is persisted using UE5 SaveGame:
 
 Allows restoring full inventory and equipment setup.
 
-![Inventory Save](Screenshots/BP Save Inventory.JPG)
+![Inventory Save](Screenshots/BP_Save_Inventory.JPG)
 
 ---
 
