@@ -60,8 +60,9 @@ This ensures tight synchronization between animation and gameplay logic.
 - Hit reactions triggered conditionally
 - Death state handled cleanly
 
-![Custom BT Services](Screenshots/BP_Take_Damage.JPG)
 ![Custom BT Services](Screenshots/BP_Recive_damage.JPG)
+![Custom BT Services](Screenshots/BP_Take_Damage.JPG)
+
 
 ---
 
