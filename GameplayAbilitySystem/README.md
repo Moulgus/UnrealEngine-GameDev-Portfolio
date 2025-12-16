@@ -1,4 +1,4 @@
-# GAS – Data-Driven Damage (ExecCalc + CurveTables)
+# Gameplay Ability System – Data-Driven Damage (ExecCalc + CurveTables)
 
 This README presents a focused slice of the project: a **Gameplay Ability** (Fire Bolt) and a **data-driven damage pipeline** built with Unreal's **Gameplay Ability System (GAS)**.
 
