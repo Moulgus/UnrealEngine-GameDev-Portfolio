@@ -1,224 +1,125 @@
-# Gameplay Ability System – Multiplayer Combat Prototype
+# GAS – Data‑Driven Damage (ExecCalc + CurveTables)
 
-This project showcases a **multiplayer-ready Gameplay Ability System (GAS)** implementation in Unreal Engine 5.
-
-The focus is on a clean, scalable combat pipeline built for **server-authoritative gameplay**, combining:
-- Blueprint-based ability orchestration
-- C++ damage calculations
-- Attribute-driven stat management
-- Projectile-based abilities
+> **Goal:** Present a clean, recruiter‑friendly slice of the project: a **Gameplay Ability** (Fire Bolt) + a **Gameplay Effect** (Damage) driven by a **custom ExecCalc** that reads **CurveTable coefficients** assigned in a **DataAsset**.
 
 ---
 
-## Key Features
+## Overview
 
-- **Gameplay Ability: Fireball**
-  - Targeting via trace
-  - Animation-driven casting
-  - Projectile spawned through Gameplay Event
-- **Server-authoritative projectile logic**
-- **Damage handled via Gameplay Effects + ExecCalc**
-- **AttributeSet-based health and stat management**
-- **MMC-driven MaxHealth scaling**
-- Designed with **multiplayer replication** in mind
+This project uses **Unreal Gameplay Ability System (GAS)** with a **server‑authoritative, multiplayer‑ready** damage pipeline. Damage numbers are computed in C++ via a custom **Execution Calculation** (`ExecCalc_Damage`) and tuned in data using a **CurveTable** referenced by a **CharacterClassInfo DataAsset**.
+
+**What this shows:**
+
+* GAS flow: **Ability → GameplayEvent → Projectile → GameplayEffect → ExecCalc**
+* **Data‑driven balancing** via CurveTables (no recompilation needed)
+* Clean separation of concerns: data (DA/CurveTable) vs logic (ExecCalc)
 
 ---
 
-## Multiplayer Architecture
+## Screenshots
 
-This project follows GAS best practices for multiplayer:
+### 1) Gameplay Ability – Fire Bolt (Blueprint)
 
-- Abilities are **activated client-side**, but validated and executed on the **server**
-- Projectiles are spawned **only on the server**
-- Damage calculations are performed **exclusively on the server**
-- Attributes are replicated via GAS
-- Gameplay Events synchronize animation and gameplay without timers
+*(Place your annotated Fire Bolt BP screenshot here)*
 
-This ensures deterministic combat behavior and prevents client-side cheating.
+![GA Fire Bolt](Screenshots/GA_Fire_Bolt.jpg)
 
----
+### 2) Gameplay Effect – Damage (Blueprint Data‑Only)
 
-## Gameplay Ability – Fireball (Blueprint)
+*(Place your GE_Damage screenshot here)*
 
-The Fireball ability is implemented as a **Gameplay Ability Blueprint** that coordinates targeting, animation, and projectile spawning.
+![GE Damage](Screenshots/GE_Damage.jpg)
 
-![Fireball Ability Blueprint](Screenshots/GA_FireBolt.JPG)
+### 3) CurveTable – Damage Coefficients
 
-### Ability Flow
-1. Resolve target location using mouse trace
-2. Rotate character toward target
-3. Play casting montage
-4. Wait for Gameplay Event triggered by AnimNotify
-5. Spawn projectile (server-authoritative)
-6. End ability cleanly
+*(Place your CurveTable screenshot here – rows like ArmorPenetration/EffectiveArmor/CriticalHitResistance)*
 
-**Why this matters**
-- No hard-coded delays
-- Animation and gameplay are fully synchronized
-- Clean separation between visuals and logic
+![Damage Coefficient Curves](Screenshots/CT_DamageCalcCoefficients.jpg)
 
-**TODO**
-- Add short gameplay GIF showing Fireball cast in multiplayer
+### 4) DataAsset – CharacterClassInfo
+
+*(Optional but recommended: screenshot showing DamageCalculationCoefficients assigned in the DA)*
+
+![CharacterClassInfo DataAsset](Screenshots/DA_CharacterClassInfo.jpg)
 
 ---
 
-## Gameplay Effect – Damage
+## Damage Pipeline (high‑level)
 
-Damage is applied using an **Instant Gameplay Effect** that delegates its logic to a custom execution calculation.
-
-![Damage Gameplay Effect](Screenshots/GE_Damage.JPG)
-
-### Key Points
-- Gameplay Effect contains no static damage values
-- All damage logic lives in C++
-- Damage values are passed via **SetByCaller**
-- Easily reusable by multiple abilities
+1. **GA_FireBolt** acquires a target location (mouse trace / hit result)
+2. Ability plays a montage and waits for a **GameplayEvent** tag to spawn the projectile
+3. Projectile applies **GE_Damage** on hit
+4. **GE_Damage** uses **ExecCalc_Damage** to compute final damage
+5. ExecCalc reads **CurveTable coefficients** (by row name) to scale damage based on level/attributes
 
 ---
 
-## Selected C++ Implementation
+## Data‑Driven Damage Scaling (CurveTable)
 
-Below are **key excerpts** from the C++ implementation that form the core of the combat pipeline.
+Damage coefficients are stored in a `UCurveTable` and evaluated at runtime in `ExecCalc_Damage`.
+The table is assigned in **DA_CharacterClassInfo**:
+
+* `DamageCalculationCoefficients` → `CT_DamageCalcCoefficients`
+
+**Curve rows used (examples):**
+
+* `ArmorPenetration` – scales armor penetration by **source level**
+* `EffectiveArmor` – scales armor effectiveness by **target level**
+* `CriticalHitResistance` – mitigates crit chance by **target level**
+
+This enables designers to tune combat by editing curves without touching C++.
 
 ---
 
-### Damage Execution Calculation (ExecCalc_Damage.cpp)
+## Key Code – ExecCalc_Damage (C++)
 
-This class is responsible for calculating **final damage on the server**.
+> Below are portfolio‑friendly excerpts. Keep them as multiple separate code blocks for readability.
 
-**Responsibilities**
-- Read captured attributes
-- Apply resistances, armor, block, and critical hit logic
-- Output final damage to a temporary attribute (`IncomingDamage`)
+### 1) Retrieve CurveTable from CharacterClassInfo
 
 ```cpp
-// ExecCalc_Damage.cpp (excerpt)
-// Aggregates per-damage-type SetByCaller values, applies resistances, block, armor/penetration,
-// critical logic, and outputs final value into IncomingDamage (server-authoritative).
+// Retrieve damage coefficient curve table from CharacterClassInfo (DataAsset)
+const UCharacterClassInfo* ClassInfo =
+    UAuraAbilitySystemLibrary::GetCharacterClassInfo(SourceAvatarActor);
 
-void UExecCalc_Damage::Execute_Implementation(
-    const FGameplayEffectCustomExecutionParameters& ExecutionParams,
-    FGameplayEffectCustomExecutionOutput& OutExecutionOutput
-) const
-{
-    const FGameplayEffectSpec& Spec = ExecutionParams.GetOwningSpec();
-
-    const FGameplayTagContainer* SourceTags = Spec.CapturedSourceTags.GetAggregatedTags();
-    const FGameplayTagContainer* TargetTags = Spec.CapturedTargetTags.GetAggregatedTags();
-
-    FAggregatorEvaluateParameters Params;
-    Params.SourceTags = SourceTags;
-    Params.TargetTags = TargetTags;
-
-    // 1) Aggregate damage types (SetByCaller) and apply resistances.
-    float Damage = 0.f;
-
-    for (const TTuple<FGameplayTag, FGameplayTag>& Pair : FAuraGameplayTags::Get().DamageTypesToResistances)
-    {
-        const FGameplayTag DamageTypeTag = Pair.Key;
-        const FGameplayTag ResistanceTag = Pair.Value;
-
-        checkf(
-            AuraDamageStatics().TagsToCaptureDefs.Contains(ResistanceTag),
-            TEXT("Missing resistance capture definition for tag: %s"),
-            *ResistanceTag.ToString()
-        );
-
-        const FGameplayEffectAttributeCaptureDefinition ResistanceDef =
-            AuraDamageStatics().TagsToCaptureDefs[ResistanceTag];
-
-        const float DamageTypeValue = Spec.GetSetByCallerMagnitude(DamageTypeTag);
-
-        float Resistance = 0.f;
-        ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(ResistanceDef, Params, Resistance);
-        Resistance = FMath::Clamp(Resistance, 0.f, 100.f);
-
-        Damage += DamageTypeValue * (100.f - Resistance) / 100.f;
-    }
-
-    // 2) Block: chance-based mitigation + store result in EffectContext.
-    float TargetBlockChance = 0.f;
-    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().BlockChanceDef, Params, TargetBlockChance);
-    TargetBlockChance = FMath::Max(0.f, TargetBlockChance);
-
-    const bool bBlocked = FMath::RandRange(0, 100) < TargetBlockChance;
-
-    FGameplayEffectContextHandle EffectContext = Spec.GetContext();
-    UAuraAbilitySystemLibrary::SetIsBlockedHit(EffectContext, bBlocked);
-
-    if (bBlocked)
-    {
-        Damage *= 0.5f;
-    }
-
-    // 3) Armor / Armor Penetration (scaled by level curves).
-    float TargetArmor = 0.f;
-    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().ArmorDef, Params, TargetArmor);
-    TargetArmor = FMath::Max(0.f, TargetArmor);
-
-    float SourceArmorPen = 0.f;
-    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().ArmorPenetrationDef, Params, SourceArmorPen);
-    SourceArmorPen = FMath::Max(0.f, SourceArmorPen);
-
-    const float ArmorPenCoeff = GetArmorPenCoefficientFromCurve(/* Source level */);
-    const float EffectiveArmorCoeff = GetEffectiveArmorCoefficientFromCurve(/* Target level */);
-
-    const float EffectiveArmor = TargetArmor * (100.f - SourceArmorPen * ArmorPenCoeff) / 100.f;
-    Damage *= (100.f - EffectiveArmor * EffectiveArmorCoeff) / 100.f;
-
-    // 4) Critical hit: chance vs resistance (scaled by level curve) + store result in EffectContext.
-    float SourceCritChance = 0.f;
-    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CriticalHitChanceDef, Params, SourceCritChance);
-    SourceCritChance = FMath::Max(0.f, SourceCritChance);
-
-    float TargetCritResist = 0.f;
-    ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CriticalHitResistanceDef, Params, TargetCritResist);
-    TargetCritResist = FMath::Max(0.f, TargetCritResist);
-
-    const float CritResistCoeff = GetCritResistCoefficientFromCurve(/* Target level */);
-
-    const bool bCriticalHit = FMath::RandRange(0, 100) <
-        FMath::Max(0.f, SourceCritChance - TargetCritResist * CritResistCoeff);
-
-    UAuraAbilitySystemLibrary::SetIsCriticalHit(EffectContext, bCriticalHit);
-
-    if (bCriticalHit)
-    {
-        float SourceCritDamage = 0.f;
-        ExecutionParams.AttemptCalculateCapturedAttributeMagnitude(DamageStatics().CriticalHitDamageDef, Params, SourceCritDamage);
-        SourceCritDamage = FMath::Max(0.f, SourceCritDamage);
-
-        Damage = Damage * 2.f + SourceCritDamage;
-    }
-
-    // 5) Output: write final result to IncomingDamage (consumed by AttributeSet).
-    OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(
-        UAuraAttributeSet::GetIncomingDamageAttribute(),
-        EGameplayModOp::Additive,
-        Damage
-    ));
-}
-```
-```cpp
-// Damage coefficients are data-driven (CurveTable assigned in DA_CharacterClassInfo)
-const UCharacterClassInfo* ClassInfo = UAuraAbilitySystemLibrary::GetCharacterClassInfo(SourceAvatarActor);
 check(ClassInfo && ClassInfo->DamageCalculationCoefficients);
 
-const FString ContextString = TEXT("DamageCoefficients");
 UCurveTable* CoeffTable = ClassInfo->DamageCalculationCoefficients;
+const FString ContextString(TEXT("DamageCoefficients"));
+```
 
-// Example: Armor Penetration coefficient (scaled by Source level)
-const FRealCurve* ArmorPenCurve = CoeffTable->FindCurve(FName("ArmorPenetration"), ContextString);
-check(ArmorPenCurve);
+### 2) Evaluate Armor Penetration (scaled by Source Level)
+
+```cpp
+const FRealCurve* ArmorPenCurve =
+    CoeffTable->FindCurve(FName("ArmorPenetration"), ContextString);
 
 const float SourceLevel = ICombatInterface::Execute_GetPlayerLevel(SourceAvatarActor);
-const float ArmorPenCoeff = ArmorPenCurve->Eval(SourceLevel);
+const float ArmorPenCoeff = ArmorPenCurve ? ArmorPenCurve->Eval(SourceLevel) : 0.f;
+```
 
-// Example: Effective Armor coefficient (scaled by Target level)
-const FRealCurve* EffectiveArmorCurve = CoeffTable->FindCurve(FName("EffectiveArmor"), ContextString);
-check(EffectiveArmorCurve);
+### 3) Evaluate Effective Armor (scaled by Target Level)
+
+```cpp
+const FRealCurve* EffectiveArmorCurve =
+    CoeffTable->FindCurve(FName("EffectiveArmor"), ContextString);
 
 const float TargetLevel = ICombatInterface::Execute_GetPlayerLevel(TargetAvatarActor);
-const float EffectiveArmorCoeff = EffectiveArmorCurve->Eval(TargetLevel);
+const float EffectiveArmorCoeff = EffectiveArmorCurve ? EffectiveArmorCurve->Eval(TargetLevel) : 0.f;
+```
 
+### 4) Evaluate Critical Hit Resistance (scaled by Target Level)
+
+```cpp
+const FRealCurve* CritResistCurve =
+    CoeffTable->FindCurve(FName("CriticalHitResistance"), ContextString);
+
+const float CritResistCoeff = CritResistCurve ? CritResistCurve->Eval(TargetLevel) : 0.f;
+```
+
+### 5) Why this approach
+
+* **Balance quickly** by editing curves (no code changes)
+* Keep logic deterministic and **server‑authoritative** for multiplayer
+* Centralize tuning parameters in a single data source (CurveTable)
 
