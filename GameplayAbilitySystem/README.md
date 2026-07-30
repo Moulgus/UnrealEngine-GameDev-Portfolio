@@ -1,127 +1,180 @@
-# Gameplay Ability System – Data-Driven Damage (ExecCalc + CurveTables)
+# Gameplay Ability System - Aura Learning Project
 
-This README presents a focused slice of the project: a **Gameplay Ability** (Fire Bolt) and a **data-driven damage pipeline** built with Unreal's **Gameplay Ability System (GAS)**.
+A solo learning project created to understand Unreal Engine's Gameplay Ability
+System through practical C++ and Blueprint implementation.
 
----
+## Project Context and Attribution
 
-## Overview
+This project follows
+[Unreal Engine 5 - Gameplay Ability System - Top Down RPG](https://www.udemy.com/course/unreal-engine-5-gas-top-down-rpg/)
+by Stephen Ulibarri.
 
-This project uses **Unreal Gameplay Ability System (GAS)** with a **server-authoritative, multiplayer-ready** damage pipeline. Damage numbers are computed in C++ via a custom **Execution Calculation** (`ExecCalc_Damage`) and tuned in data using a **CurveTable** referenced by a **CharacterClassInfo DataAsset**.
+I implemented the systems while progressing through the course and used the
+project to learn how the main parts of GAS communicate. The project contains
+only minor modifications and the course was not completed in full.
 
-**What this shows:**
-- GAS flow: **Ability → GameplayEvent → Projectile → GameplayEffect → ExecCalc**
-- **Data-driven balancing** via CurveTables (no recompilation needed)
-- Clean separation of concerns: data (DA/CurveTable) vs logic (ExecCalc)
+The architecture, project concept, and most implementation decisions originate
+from the course. This case study is included as a record of technical learning,
+not as a claim of an independently designed RPG.
 
----
+I later applied the acquired GAS knowledge in my engineering thesis, where the
+Gameplay Ability System implementation was designed and developed independently.
 
-## Screenshots
+## Learning Goals
 
-### 1) Gameplay Ability – Fire Bolt (Blueprint)
+- Understand the responsibilities of Ability System Components and Attribute Sets
+- Create Gameplay Abilities and Gameplay Effects
+- Use Gameplay Tags for damage types, input, states, and ability metadata
+- Learn attribute capture and custom Execution Calculations
+- Understand server authority and GAS replication patterns
+- Connect C++ gameplay systems with Blueprint-authored abilities and effects
+- Drive UI through attribute and ability state changes
+- Keep combat balancing data outside the damage calculation code
 
-![GA Fire Bolt](Screenshots/GA_Fire_Bolt.JPG)
+## Implemented Course Scope
 
-### 2) Gameplay Effect – Damage (Blueprint, data-only)
+The local Unreal Engine 5.3 project includes:
 
-![GE Damage](Screenshots/GE_Damage.JPG)
+- Player and enemy Ability System Components
+- Replicated primary, secondary, vital, and resistance attributes
+- Gameplay Abilities for projectiles, melee attacks, fire bolts, and summoning
+- Gameplay Effects and SetByCaller damage magnitudes
+- Native Gameplay Tags
+- Custom Gameplay Effect Context data
+- Custom damage Execution Calculation
+- Magnitude Calculations for maximum health and mana
+- Target data collection through a custom Ability Task
+- Server-side ability and projectile operations
+- Experience, level, attribute point, and spell point systems
+- Attribute, overlay, and spell menu Widget Controllers
+- Data Assets for abilities, attributes, character classes, and level progression
 
-### 3) CurveTable – Damage Coefficients
+The project does not represent the completed course or a finished game.
 
-![Damage Coefficient Curves](Screenshots/CT_DamageCalcCoefficients.JPG)
+## Portfolio Focus - Data-Driven Damage
 
-### 4) DataAsset – CharacterClassInfo
+The portfolio presents one focused part of the learning project: a Fire Bolt
+ability and the damage pipeline that connects a Gameplay Ability, projectile,
+Gameplay Effect, custom Execution Calculation, Attribute Set, and UI feedback.
 
-![CharacterClassInfo DataAsset](Screenshots/DA_CharacterClassInfo.JPG)
+### High-Level Flow
 
----
+1. `GA_FireBolt` receives target data
+2. The ability plays a casting montage
+3. A Gameplay Event triggers projectile creation
+4. The server spawns the projectile
+5. The projectile carries a damage Gameplay Effect Spec
+6. Damage values are assigned through SetByCaller Gameplay Tags
+7. `ExecCalc_Damage` evaluates damage, resistances, block, armor, and critical hit
+8. The result is written to the `IncomingDamage` meta attribute
+9. `AuraAttributeSet` applies the result to health
+10. Hit reaction, death, and floating combat text are triggered
 
-## Damage Pipeline (high-level)
+## Gameplay Ability - Fire Bolt
 
-1. **GA_FireBolt** acquires a target location (mouse trace / hit result)
-2. Ability plays a montage and waits for a **GameplayEvent** tag to spawn the projectile
-3. Projectile applies **GE_Damage** on hit
-4. **GE_Damage** uses **ExecCalc_Damage** to compute final damage
-5. ExecCalc reads **CurveTable coefficients** (by row name) to scale damage based on level/attributes
+The Blueprint ability coordinates target data, character rotation, casting
+animation, Gameplay Events, projectile spawning, and ability completion.
 
----
+![Fire Bolt Gameplay Ability](Screenshots/GA_Fire_Bolt.JPG)
 
-## Data-Driven Damage Scaling (CurveTable)
+The projectile itself is spawned through C++ only when the owning avatar has
+authority. A Gameplay Effect Spec and effect context are created before the
+projectile finishes spawning.
 
-Damage coefficients are stored in a `UCurveTable` and evaluated at runtime in `ExecCalc_Damage`.
-The table is assigned in **DA_CharacterClassInfo**:
+[View the projectile spell excerpt](Snippets/AuraProjectileSpell.cpp)
 
-- `DamageCalculationCoefficients` → `CT_DamageCalcCoefficients`
+## Damage Gameplay Effect
 
-**Curve rows used:**
-- `ArmorPenetration` – scales armor penetration by **source level**
-- `EffectiveArmor` – scales armor effectiveness by **target level**
-- `CriticalHitResistance` – mitigates crit chance by **target level**
+The damage Gameplay Effect delegates final damage resolution to the custom
+Execution Calculation. This keeps the Blueprint effect focused on configuration
+while the calculation remains in C++.
 
-This enables designers to tune combat by editing curves without touching C++.
+![Damage Gameplay Effect](Screenshots/GE_Damage.JPG)
 
----
+## Custom Damage Execution
 
-## Key Code – ExecCalc_Damage (C++)
+`ExecCalc_Damage` captures combat attributes and processes:
 
-Below are portfolio-friendly excerpts shown as separate blocks for readability.
+- Multiple damage types
+- Matching target resistances
+- Block chance
+- Armor
+- Armor penetration
+- Critical hit chance
+- Critical hit resistance
+- Additional critical hit damage
 
-### 1) Retrieve CurveTable from CharacterClassInfo
+The calculation stores block and critical hit results in the Gameplay Effect
+Context so downstream feedback can display the correct result.
 
-```cpp
-// Retrieve damage coefficient curve table from CharacterClassInfo (DataAsset)
-const UCharacterClassInfo* ClassInfo =
-    UAuraAbilitySystemLibrary::GetCharacterClassInfo(SourceAvatarActor);
+[View the damage calculation excerpt](Snippets/ExecCalc_Damage.cpp)
 
-check(ClassInfo && ClassInfo->DamageCalculationCoefficients);
+## Data-Driven Scaling
 
-UCurveTable* CoeffTable = ClassInfo->DamageCalculationCoefficients;
-const FString ContextString(TEXT("DamageCoefficients"));
-```
+Level-dependent coefficients are stored in a Curve Table and referenced through
+a Character Class Data Asset.
 
-### 2) Evaluate Armor Penetration (scaled by Source Level)
+The presented rows control:
 
-```cpp
-const FRealCurve* ArmorPenCurve =
-    CoeffTable->FindCurve(FName("ArmorPenetration"), ContextString);
+- Armor penetration effectiveness by source level
+- Effective armor scaling by target level
+- Critical hit resistance scaling by target level
 
-const float SourceLevel = ICombatInterface::Execute_GetPlayerLevel(SourceAvatarActor);
-const float ArmorPenCoeff = ArmorPenCurve ? ArmorPenCurve->Eval(SourceLevel) : 0.f;
-```
+![Damage coefficient Curve Table](Screenshots/CT_DamageCalcCoefficients.JPG)
 
-### 3) Evaluate Effective Armor (scaled by Target Level)
+![Character Class Data Asset](Screenshots/DA_CharacterClassInfo.JPG)
 
-```cpp
-const FRealCurve* EffectiveArmorCurve =
-    CoeffTable->FindCurve(FName("EffectiveArmor"), ContextString);
+Moving these coefficients into data allows balancing changes without rewriting
+the execution calculation.
 
-const float TargetLevel = ICombatInterface::Execute_GetPlayerLevel(TargetAvatarActor);
-const float EffectiveArmorCoeff = EffectiveArmorCurve ? EffectiveArmorCurve->Eval(TargetLevel) : 0.f;
-```
+## Attribute Processing
 
-### 4) Evaluate Critical Hit Resistance (scaled by Target Level)
-```cpp
-const FRealCurve* CritResistCurve =
-    CoeffTable->FindCurve(FName("CriticalHitResistance"), ContextString);
+Damage is routed through the transient `IncomingDamage` meta attribute. After a
+Gameplay Effect executes, the Attribute Set:
 
-const float CritResistCoeff = CritResistCurve ? CritResistCurve->Eval(TargetLevel) : 0.f;
-```
-Full excerpt: [`Snippets/ExecCalc_Damage.cpp`](Snippets/ExecCalc_Damage.cpp)
+1. Reads and resets incoming damage
+2. Applies the value to health
+3. Checks whether the hit is fatal
+4. Triggers death or a hit reaction
+5. Reads block and critical hit context
+6. Sends floating combat text to the player controller
 
-### 5) Why this approach
+[View the Attribute Set declaration](Snippets/AuraAttributeSet.h)
 
-- Balance quickly by editing curves (no code changes)
-- Keep logic deterministic and server-authoritative for multiplayer
-- Centralize tuning parameters in a single data source (CurveTable)
+[View the damage processing excerpt](Snippets/AuraAttributeSet.cpp)
 
-### Gameplay Video
+## Replication and Authority
 
-▶ YouTube: 
+The course project introduced several multiplayer-oriented GAS patterns:
 
-## Repository Structure
+- Replicated attributes with RepNotify callbacks
+- Mixed replication mode for the player Ability System Component
+- Minimal replication mode for enemy Ability System Components
+- Server RPCs for spending points and equipping abilities
+- Replicated target data for abilities
+- Server-authoritative projectile spawning
 
-- [`README.md`](UnrealEngine-GameDev-Portfolio/GameplayAbilitySystem/README.md) – overview of the GAS damage pipeline
-- [`Screenshots/`](Screenshots/) – visuals referenced in this README
-- [`Snippets/`](Snippets/) – selected C++ code snippets (ExecCalc, AttributeSet, MMC)
+These patterns were implemented as part of the course project. They should not
+be interpreted as an independently designed or production-validated multiplayer
+architecture.
 
-This repository presents selected excerpts of a larger multiplayer GAS project,
-focusing on core combat and damage logic.
+## Additional Code Excerpt
+
+The project also contains a custom Modifier Magnitude Calculation that derives
+maximum health from Vigor and player level:
+
+[View the Max Health calculation](Snippets/MMC_MaxHealth.cpp)
+
+## What I Learned
+
+- How GAS distributes responsibilities across abilities, effects, attributes,
+  tags, calculations, and effect contexts
+- How server authority influences ability and projectile implementation
+- How captured attributes are evaluated inside an Execution Calculation
+- How meta attributes can separate damage calculation from health modification
+- How Data Assets and Curve Tables support configurable combat systems
+- How C++ GAS code can expose flexible configuration to Blueprints
+- How gameplay state changes can drive UMG through Widget Controllers
+
+This learning project provided the foundation for the independent GAS
+implementation used in my engineering thesis.
