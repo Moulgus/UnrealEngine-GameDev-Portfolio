@@ -24,20 +24,22 @@ primarily with Unreal Engine.
 
 ## Featured Projects
 
-### Engineering Thesis - Action RPG Dungeon Crawler (Work in Progress)
+### Engineering Thesis - Action RPG Dungeon Crawler Demo
 
-My most advanced Unreal Engine project: a solo action RPG dungeon crawler that
-connects a C++ inventory and equipment architecture with GAS-driven combat.
-Weapons grant abilities and passive effects, armor modifies resistances,
-enchantments affect damage and weapon trails, and loot chests generate
-data-driven rewards.
+My most advanced Unreal Engine project: a complete playable solo action RPG
+dungeon crawler demo that connects a C++ inventory and equipment architecture
+with GAS-driven combat. Weapons grant abilities and passive effects, armor
+modifies resistances, enchantments drive elemental and reactive combat effects,
+a replicated quick wheel provides access to favorite items, and a shared loot
+bag produces assisted-random chest rewards.
 
-The core player systems are functional. The first melee enemy and its State
-Tree behavior are currently in development; ranged and magic enemies, a dragon
-boss, bow combat, and magic staff abilities are planned.
+The demo includes four enemy roles, wave arenas, a multi-stage dragon boss,
+character progression, character creation, settings, persistent world saves,
+and a repeatable-run transition that retains the player's equipment and level.
 
 **Highlights:** C++, Blueprints, GAS, Gameplay Tags, Fast Array replication,
-UMG, Data Assets, custom damage execution, AI Perception, State Trees
+UMG, Data Assets, custom damage execution, reactive enchantments, AI
+Perception, State Trees, server-authoritative systems, SaveGame persistence
 
 [View the Engineering Thesis case study](EngineeringThesis/README.md)
 
@@ -134,8 +136,10 @@ and version control.
 All project demonstrations are collected in the
 [Unreal Engine Portfolio playlist](https://www.youtube.com/playlist?list=PLxXKv2ZyiFaTjrA4zKqaofoGy1IaJdq8e).
 
-Additional videos, including the Gameplay Ability System learning showcase and
-future engineering thesis updates, are in preparation.
+The engineering thesis case study also includes curated C++ excerpts covering
+damage execution, equipment-to-GAS lifecycle, replication, quick-wheel item
+identity, enchantment procs, assisted-random loot, boss state, and persistent
+runs.
 
 ## Contact
 
